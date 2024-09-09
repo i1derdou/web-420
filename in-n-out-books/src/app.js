@@ -9,6 +9,9 @@ const express = require('express');
 const app = express();
 const path = require('path');
 
+// Import the mock database of books
+const books = require('../database/books'); // Adjust the path based on your project structure
+
 // Middleware to serve static files (like CSS, images)
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -37,6 +40,39 @@ app.get('/', (req, res) => {
         </body>
         </html>
     `);
+});
+
+// GET route to fetch all books
+app.get('/api/books', (req, res) => {
+    try {
+        const allBooks = books.find();
+        res.json(allBooks);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Failed to retrieve books.' });
+    }
+});
+
+// GET route to fetch a single book by id
+app.get('/api/books/:id', (req, res) => {
+    try {
+        const id = Number(req.params.id);
+
+        // Check if the id is a valid number
+        if (isNaN(id)) {
+            return res.status(400).json({ message: 'Invalid book ID. Please provide a valid number.' });
+        }
+
+        const book = books.findOne(id);
+        if (book) {
+            res.json(book);
+        } else {
+            res.status(404).json({ message: 'Book not found.' });
+        }
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Failed to retrieve the book.' });
+    }
 });
 
 // Route to trigger an error for testing 500 error handling

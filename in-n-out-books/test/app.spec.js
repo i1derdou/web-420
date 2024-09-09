@@ -8,6 +8,44 @@
 const request = require('supertest'); // Import Supertest to make HTTP requests
 const app = require('../src/app'); // Import the Express application from app.js in the src folder
 
+// Mock the books database
+jest.mock('../database/books', () => ({
+    find: jest.fn(() => [
+        { id: 1, title: 'Book One', author: 'Author One' },
+        { id: 2, title: 'Book Two', author: 'Author Two' }
+    ]),
+    findOne: jest.fn((id) => ({ id, title: `Book ${id}`, author: `Author ${id}` }))
+}));
+
+describe('Chapter 3: API Tests', () => {
+
+    // Test case a: Should return an array of books
+    test('Should return an array of books', async () => {
+        const response = await request(app).get('/api/books'); // Make a GET request to /api/books
+        expect(response.statusCode).toBe(200); // Expect status code 200 (OK)
+        expect(Array.isArray(response.body)).toBe(true); // Expect the response to be an array
+        expect(response.body.length).toBeGreaterThan(0); // Expect the array to contain books
+        expect(response.body[0]).toHaveProperty('id'); // Expect the books to have an id
+        expect(response.body[0]).toHaveProperty('title'); // Expect the books to have a title
+    });
+
+    // Test case b: Should return a single book
+    test('Should return a single book', async () => {
+        const response = await request(app).get('/api/books/1'); // Make a GET request to /api/books/:id
+        expect(response.statusCode).toBe(200); // Expect status code 200 (OK)
+        expect(response.body).toHaveProperty('id', 1); // Expect the response to have the correct id
+        expect(response.body).toHaveProperty('title', 'Book 1'); // Expect the response to have the correct title
+    });
+
+    // Test case c: Should return a 400 error if the id is not a number
+    test('Should return a 400 error if the id is not a number', async () => {
+        const response = await request(app).get('/api/books/abc'); // Make a GET request with a non-numeric id
+        expect(response.statusCode).toBe(400); // Expect status code 400 (Bad Request)
+        expect(response.body).toHaveProperty('message', 'Invalid book ID. Please provide a valid number.'); // Expect a proper error message
+    });
+});
+
+// Other tests
 describe('Test the root path', () => {
     test('It should respond with the landing page', async () => {
         const response = await request(app).get('/'); // Make a GET request to the root path
