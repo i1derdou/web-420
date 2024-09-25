@@ -1,6 +1,6 @@
 /**
  * Author:    David Clemens
- * Date:      2024-09-15
+ * Date:      2024-09-01
  * File Name: app.js
  * Description:
  */
@@ -12,9 +12,12 @@ const path = require('path');
 // Import the mock database of books
 const books = require('../database/books'); // Adjust the path based on your project structure
 
+// Middleware to parse JSON
+app.use(express.json());
+
 // Middleware to serve static files (like CSS, images)
 app.use(express.static(path.join(__dirname, 'public')));
-app.use(express.json()); // This allows us to parse JSON request bodies
+
 
 // Route for the root URL ("/")
 app.get('/', (req, res) => {
@@ -43,58 +46,143 @@ app.get('/', (req, res) => {
     `);
 });
 
-// POST route to add a new book to the collection
-app.post('/api/books', (req, res) => {
-  try {
-      const { title, author } = req.body;
-
-      // Check if the title is missing
-      if (!title) {
-          return res.status(400).json({ message: 'Book title is required.' });
-      }
-
-      // Generate a new book ID (mock database uses sequential IDs)
-      const newId = books.data.length ? books.data[books.data.length - 1].id + 1 : 1;
-
-      // Create the new book object
-      const newBook = { id: newId, title, author };
-
-      // Insert the new book into the mock database
-      books.insertOne(newBook);
-
-      // Return the 201 status code and the new book object
-      res.status(201).json(newBook);
-  } catch (error) {
-      console.error(error);
-      res.status(500).json({ message: 'Failed to add the book.' });
-  }
+// GET route to fetch all books
+app.get('/api/books', (req, res) => {
+    try {
+        const allBooks = books.find();
+        res.json(allBooks);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Failed to retrieve books.' });
+    }
 });
 
-// DELETE route to remove a book by its ID
-app.delete('/api/books/:id', (req, res) => {
-  try {
-      const id = Number(req.params.id);
+// GET route to fetch a single book by id
+app.get('/api/books/:id', (req, res) => {
+    try {
+        const id = Number(req.params.id);
 
-      // Check if the ID is a valid number
-      if (isNaN(id)) {
-          return res.status(400).json({ message: 'Invalid book ID. Please provide a valid number.' });
-      }
+        // Check if the id is a valid number
+        if (isNaN(id)) {
+            return res.status(400).json({ message: 'Invalid book ID. Please provide a valid number.' });
+        }
 
-      // Attempt to delete the book from the mock database
-      const result = books.deleteOne({ id });
-
-      // If no book is found to delete, return a 404
-      if (result.deletedCount === 0) {
-          return res.status(404).json({ message: 'Book not found.' });
-      }
-
-      // Return 204 No Content to indicate successful deletion
-      res.status(204).send();
-  } catch (error) {
-      console.error(error);
-      res.status(500).json({ message: 'Failed to delete the book.' });
-  }
+        const book = books.findOne(id);
+        if (book) {
+            res.json(book);
+        } else {
+            res.status(404).json({ message: 'Book not found.' });
+        }
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Failed to retrieve the book.' });
+    }
 });
+
+// POST route to add a new book
+app.post('/api/books', async (req, res) => {
+    try {
+        const { title, author } = req.body;
+
+        // Check if the title is missing
+        if (!title) {
+            return res.status(400).json({ message: 'Book title is required.' });
+        }
+
+        // Get all books and calculate the new ID based on the current length
+        const allBooks = books.find();  // Assuming books.find() returns an array
+        const newId = allBooks.length + 1;  // Calculate the new ID
+
+        const newBook = {
+            id: newId,
+            title,
+            author
+        };
+
+        // Add the book to the collection
+        await books.insertOne(newBook);
+        return res.status(201).json(newBook);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Failed to add the book.' });
+    }
+  });
+
+  // DELETE route to delete a book by ID
+  app.delete('/api/books/:id', async (req, res) => {
+    try {
+        const id = parseInt(req.params.id, 10);
+
+        // Validate if the ID is a number
+        if (isNaN(id)) {
+            return res.status(400).json({ message: 'Invalid book ID.' });
+        }
+
+        // Attempt to delete the book
+        await books.deleteOne({ id });
+        return res.status(204).send(); // No content
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Failed to delete the book.' });
+    }
+  });
+
+  // PUT route to update a book by ID
+  app.put('/api/books/:id', async (req, res) => {
+    try {
+        const id = parseInt(req.params.id, 10);
+
+        // Check if the id is a valid number
+        if (isNaN(id)) {
+            return res.status(400).json({ message: 'Invalid book ID. Please provide a valid number.' });
+        }
+
+        const { title, author } = req.body;
+
+        // Check if the title is missing
+        if (!title) {
+            return res.status(400).json({ message: 'Book title is required.' });
+        }
+
+        // Mock update logic in the database
+        const updatedBook = { id, title, author };
+
+        // Assume the mock database returns success after updating the book
+        await books.updateOne({ id }, updatedBook);
+        return res.status(204).send(); // No content on success
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Failed to update the book.' });
+    }
+  });
+
+// Route to trigger an error for testing 500 error handling
+app.get('/error', (req, res, next) => {
+    next(new Error('Test error')); // Pass an error to the next middleware
+});
+
+// 404 Error Handler
+app.use((req, res, next) => {
+    res.status(404).send(`
+        <h1>404 - Page Not Found</h1>
+        <p>Sorry, the page you are looking for does not exist.</p>
+    `);
+});
+
+// 500 Error Handler
+app.use((err, req, res, next) => {
+  console.error(err.stack);  // Log the error stack to the console
+  res.status(500).json({
+      message: err.message, // Include the error message in the response
+      ...(req.app.get('env') === 'development' ? { stack: err.stack } : {}) // Include stack trace if in development mode
+  });
+});
+
+app.use((req, res, next) => {
+  console.log(`Request URL: ${req.url}`);
+  next();
+});
+
 
 // Export the app module
 module.exports = app;
