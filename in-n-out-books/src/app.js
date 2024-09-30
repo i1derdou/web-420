@@ -1,6 +1,6 @@
 /**
  * Author:    David Clemens
- * Date:      2024-09-01
+ * Date:      2024-09-29
  * File Name: app.js
  * Description:
  */
@@ -8,6 +8,8 @@
 const express = require('express');
 const app = express();
 const path = require('path');
+const bcrypt = require('bcryptjs');
+const users = require('../database/users'); // Adjust the path as needed
 
 // Import the mock database of books
 const books = require('../database/books'); // Adjust the path based on your project structure
@@ -155,6 +157,38 @@ app.post('/api/books', async (req, res) => {
         res.status(500).json({ message: 'Failed to update the book.' });
     }
   });
+
+// POST route for user login
+app.post('/api/login', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    // Check if both email and password are provided
+    if (!email || !password) {
+      return res.status(400).json({ message: 'Email and password are required.' });
+    }
+
+    // Find the user by email
+    const user = await users.findOne({ email });
+
+    if (!user) {
+      return res.status(401).json({ message: 'Unauthorized' });
+    }
+
+    // Compare the provided password with the stored hashed password
+    const isValidPassword = bcrypt.compareSync(password, user.password);
+
+    if (!isValidPassword) {
+      return res.status(401).json({ message: 'Unauthorized' });
+    }
+
+    // If authentication is successful
+    return res.status(200).json({ message: 'Authentication successful' });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: 'An error occurred during login' });
+  }
+});
 
 // Route to trigger an error for testing 500 error handling
 app.get('/error', (req, res, next) => {
