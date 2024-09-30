@@ -9,10 +9,10 @@ const express = require('express');
 const app = express();
 const path = require('path');
 const bcrypt = require('bcryptjs');
-const users = require('../database/users'); // Adjust the path as needed
+const users = require('../database/users');
 
 // Import the mock database of books
-const books = require('../database/books'); // Adjust the path based on your project structure
+const books = require('../database/books');
 
 // Middleware to parse JSON
 app.use(express.json());
