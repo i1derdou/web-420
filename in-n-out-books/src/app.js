@@ -1,6 +1,6 @@
 /**
  * Author:    David Clemens
- * Date:      2024-09-29
+ * Date:      2024-10-06
  * File Name: app.js
  * Description:
  */
@@ -13,6 +13,22 @@ const users = require('../database/users');
 
 // Import the mock database of books
 const books = require('../database/books');
+
+const Ajv = require("ajv");
+const ajv = new Ajv();
+
+// JSON schema for the security question answers
+const securityQuestionSchema = {
+  type: "array",
+  items: {
+    type: "object",
+    properties: {
+      answer: { type: "string" },
+    },
+    required: ["answer"],
+    additionalProperties: false,
+  },
+};
 
 // Middleware to parse JSON
 app.use(express.json());
@@ -187,6 +203,42 @@ app.post('/api/login', async (req, res) => {
   } catch (error) {
     console.error(error);
     return res.status(500).json({ message: 'An error occurred during login' });
+  }
+});
+
+// POST route to verify the user's security questions
+app.post('/api/users/:email/verify-security-question', async (req, res) => {
+  try {
+    const { email } = req.params;
+    const { answers } = req.body;
+
+    // Validate the request body using ajv
+    const validate = ajv.compile(securityQuestionSchema);
+    const valid = validate(answers);
+
+    if (!valid) {
+      return res.status(400).json({ message: 'Bad Request: Invalid request body' });
+    }
+
+    // Find the user by email
+    const user = await users.findOne({ email });
+
+    if (!user) {
+      return res.status(401).json({ message: 'Unauthorized' });
+    }
+
+    // Compare each answer with the stored security question answers
+    const isCorrect = answers.every((ans, index) => ans.answer === user.securityQuestions[index].answer);
+
+    if (isCorrect) {
+      return res.status(200).json({ message: 'Security questions successfully answered' });
+    } else {
+      return res.status(401).json({ message: 'Unauthorized' });
+    }
+
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: 'An error occurred' });
   }
 });
 

@@ -1,6 +1,6 @@
 /**
  * Author:    David Clemens
- * Date:      2024-09-29
+ * Date:      2024-10-06
  * File Name: app.spec.js
  * Description: Test
  */
@@ -237,4 +237,75 @@ describe('Chapter 6: API Tests', () => {
     expect(responseMissingPassword.statusCode).toBe(400); // Expect 400 Bad Request
     expect(responseMissingPassword.body).toHaveProperty('message', 'Email and password are required.'); // Expect correct error message
   });
+});
+
+describe('Chapter 7: API Tests', () => {
+
+  // Test case a: Should return a 200 status with 'Security questions successfully answered' message
+  test('Should return a 200 status with "Security questions successfully answered" message', async () => {
+    const userEmail = 'harry@hogwarts.edu';
+    const userAnswers = [
+      { answer: 'Hedwig' },
+      { answer: 'Quidditch Through the Ages' },
+      { answer: 'Evans' },
+    ];
+
+    // Mock users.findOne to return a user
+    users.findOne = jest.fn().mockResolvedValue({
+      email: userEmail,
+      securityQuestions: [
+        { question: "What is your pet's name?", answer: "Hedwig" },
+        { question: "What is your favorite book?", answer: "Quidditch Through the Ages" },
+        { question: "What is your mother's maiden name?", answer: "Evans" },
+      ]
+    });
+
+    const response = await request(app)
+      .post(`/api/users/${userEmail}/verify-security-question`)
+      .send({ answers: userAnswers });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.body).toHaveProperty('message', 'Security questions successfully answered');
+  });
+
+  // Test case b: Should return a 400 status with 'Bad Request' when request body fails ajv validation
+  test('Should return a 400 status with "Bad Request" when request body fails ajv validation', async () => {
+    const userEmail = 'harry@hogwarts.edu';
+    const invalidAnswers = [{ answer: 123 }]; // Invalid answer (should be a string)
+
+    const response = await request(app)
+      .post(`/api/users/${userEmail}/verify-security-question`)
+      .send({ answers: invalidAnswers });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.body).toHaveProperty('message', 'Bad Request: Invalid request body');
+  });
+
+  // Test case c: Should return a 401 status with 'Unauthorized' when the security questions are incorrect
+  test('Should return a 401 status with "Unauthorized" message when security questions are incorrect', async () => {
+    const userEmail = 'harry@hogwarts.edu';
+    const incorrectAnswers = [
+      { answer: 'Wrong' },
+      { answer: 'Wrong' },
+      { answer: 'Wrong' },
+    ];
+
+    // Mock users.findOne to return a user
+    users.findOne = jest.fn().mockResolvedValue({
+      email: userEmail,
+      securityQuestions: [
+        { question: "What is your pet's name?", answer: "Hedwig" },
+        { question: "What is your favorite book?", answer: "Quidditch Through the Ages" },
+        { question: "What is your mother's maiden name?", answer: "Evans" },
+      ]
+    });
+
+    const response = await request(app)
+      .post(`/api/users/${userEmail}/verify-security-question`)
+      .send({ answers: incorrectAnswers });
+
+    expect(response.statusCode).toBe(401);
+    expect(response.body).toHaveProperty('message', 'Unauthorized');
+  });
+
 });
